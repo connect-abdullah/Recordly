@@ -9,6 +9,8 @@ import type {
 	CursorClickEffectStyle,
 	CursorStyle,
 	CursorTelemetryPoint,
+	KeystrokeOverlaySettings,
+	KeystrokeSample,
 	Padding,
 	SpeedRegion,
 	WebcamOverlaySettings,
@@ -73,6 +75,7 @@ import {
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
 import { renderAnnotations } from "./annotationRenderer";
 import { renderCaptions } from "./captionRenderer";
+import { renderKeystrokeOverlay } from "./keystrokeRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
 
@@ -108,6 +111,8 @@ interface FrameRenderConfig {
 	annotationRegions?: AnnotationRegion[];
 	autoCaptions?: CaptionCue[];
 	autoCaptionSettings?: AutoCaptionSettings;
+	keystrokeTelemetry?: KeystrokeSample[];
+	keystrokeOverlaySettings?: KeystrokeOverlaySettings;
 	speedRegions?: SpeedRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
@@ -1526,6 +1531,17 @@ export class FrameRenderer {
 				this.config.width,
 				this.config.height,
 				timestamp / 1000,
+			);
+		}
+
+		if (this.compositeCtx) {
+			renderKeystrokeOverlay(
+				this.compositeCtx,
+				this.config.keystrokeTelemetry ?? [],
+				this.config.keystrokeOverlaySettings,
+				this.config.width,
+				this.config.height,
+				timeMs,
 			);
 		}
 	}
