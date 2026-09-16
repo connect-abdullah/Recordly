@@ -5,6 +5,7 @@ import { BrowserWindow } from "electron";
 import { ensureNativeCursorMonitorBinary, getCursorMonitorExePath } from "../paths/binaries";
 import {
 	currentCursorVisualType,
+	isKeystrokeCaptureEnabled,
 	nativeCursorMonitorOutputBuffer,
 	nativeCursorMonitorProcess,
 	setCurrentCursorVisualType,
@@ -13,6 +14,8 @@ import {
 } from "../state";
 import type { CursorVisualType } from "../types";
 import { recordCursorMouseDown, recordCursorMouseUp } from "./interaction";
+import { recordKeystrokeFromMonitorLine } from "./keystrokes";
+import { startInProcessKeystrokeTap, stopInProcessKeystrokeTap } from "./macKeystrokeTap";
 
 export function emitCursorStateChanged(cursorType: CursorVisualType) {
 	BrowserWindow.getAllWindows().forEach((window) => {
@@ -39,6 +42,11 @@ export function handleCursorMonitorStdout(chunk: Buffer) {
 			continue;
 		}
 
+		if (line.startsWith("KEY:")) {
+			recordKeystrokeFromMonitorLine(line);
+			continue;
+		}
+
 		const match = line.match(/^STATE:(.+)$/);
 		if (!match) continue;
 		const next = match[1].trim() as CursorVisualType;
@@ -55,11 +63,14 @@ export function handleCursorMonitorStdout(chunk: Buffer) {
 		) {
 			if (currentCursorVisualType !== next) {
 				setCurrentCursorVisualType(next);
-				// sampleCursorStateChange is called from cursor/telemetry.ts via the handler
 				emitCursorStateChanged(next);
 			}
 		}
 	}
+}
+
+function stopKeystrokeTap() {
+	stopInProcessKeystrokeTap();
 }
 
 export function stopNativeCursorMonitor() {
@@ -84,6 +95,18 @@ export function stopNativeCursorMonitor() {
 	setNativeCursorMonitorOutputBuffer("");
 }
 
+async function startMacKeystrokeTap() {
+	if (process.platform !== "darwin" || !isKeystrokeCaptureEnabled) {
+		return;
+	}
+
+	try {
+		await startInProcessKeystrokeTap();
+	} catch (error) {
+		console.warn("Failed to start keystroke tap:", error);
+	}
+}
+
 export async function startNativeCursorMonitor() {
 	stopNativeCursorMonitor();
 
@@ -97,7 +120,6 @@ export async function startNativeCursorMonitor() {
 		if (process.platform === "win32") {
 			helperPath = getCursorMonitorExePath();
 			try {
-				// Use F_OK on Windows — X_OK is meaningless and can give false positives
 				await fs.access(helperPath, fsConstants.F_OK);
 			} catch {
 				console.warn("Windows cursor monitor helper missing:", helperPath);
@@ -113,7 +135,9 @@ export async function startNativeCursorMonitor() {
 
 		let proc: ReturnType<typeof spawn> | null;
 		try {
-			proc = spawn(helperPath, [], {
+			const args =
+				process.platform === "win32" && isKeystrokeCaptureEnabled ? ["--capture-keys"] : [];
+			proc = spawn(helperPath, args, {
 				stdio: ["pipe", "pipe", "pipe"],
 			});
 		} catch (spawnError) {
@@ -142,8 +166,11 @@ export async function startNativeCursorMonitor() {
 
 		if (spawned.stdout) spawned.stdout.on("data", handleCursorMonitorStdout);
 		if (spawned.stderr) {
-			spawned.stderr.on("data", () => {
-				// Drain stderr so helper logging cannot block the process.
+			spawned.stderr.on("data", (chunk: Buffer) => {
+				const message = chunk.toString().trim();
+				if (message) {
+					console.warn("Native cursor monitor:", message);
+				}
 			});
 		}
 
@@ -159,5 +186,7 @@ export async function startNativeCursorMonitor() {
 		setNativeCursorMonitorProcess(null);
 		setNativeCursorMonitorOutputBuffer("");
 		setCurrentCursorVisualType("arrow");
+	} finally {
+		await startMacKeystrokeTap();
 	}
 }
