@@ -124,6 +124,15 @@
 		"cursorClickBounce": "Rebond au clic du curseur",
 		"cursorClickBounceDuration": "Vitesse du rebond",
 		"cursorSway": "Oscillation du curseur",
+		"keystrokeOverlay": {
+			"title": "Key overlay",
+			"mode": "Shortcuts only",
+			"position": "Position",
+			"bottom": "Bottom",
+			"top": "Top",
+			"size": "Size",
+			"offset": "Offset"
+		},
 		"webcam": "Incrustation webcam",
 		"webcamFootage": "Vidéo de la webcam",
 		"webcamFootageDescription": "Aucune vidéo de webcam liée à cette vidéo",

@@ -124,6 +124,15 @@
 		"cursorClickBounce": "커서 클릭 바운스",
 		"cursorClickBounceDuration": "바운스 속도",
 		"cursorSway": "커서 흔들림",
+		"keystrokeOverlay": {
+			"title": "Key overlay",
+			"mode": "Shortcuts only",
+			"position": "Position",
+			"bottom": "Bottom",
+			"top": "Top",
+			"size": "Size",
+			"offset": "Offset"
+		},
 		"webcam": "웹캠 오버레이",
 		"webcamFootage": "웹캠 영상",
 		"webcamFootageDescription": "이 비디오에 연결된 웹캠 영상이 없습니다",

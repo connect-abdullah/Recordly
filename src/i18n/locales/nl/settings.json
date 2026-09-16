@@ -124,6 +124,15 @@
 		"cursorClickBounce": "Cursorklikstuit",
 		"cursorClickBounceDuration": "Stuitsnelheid",
 		"cursorSway": "Cursorbeweging",
+		"keystrokeOverlay": {
+			"title": "Key overlay",
+			"mode": "Shortcuts only",
+			"position": "Position",
+			"bottom": "Bottom",
+			"top": "Top",
+			"size": "Size",
+			"offset": "Offset"
+		},
 		"webcam": "Webcam-overlay",
 		"webcamFootage": "Webcambeelden",
 		"webcamFootageDescription": "Geen webcambeelden gekoppeld aan deze video",

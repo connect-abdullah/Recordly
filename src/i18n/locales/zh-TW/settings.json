@@ -124,6 +124,15 @@
 		"cursorClickBounce": "點擊彈跳",
 		"cursorClickBounceDuration": "彈跳速度",
 		"cursorSway": "游標擺動",
+		"keystrokeOverlay": {
+			"title": "Key overlay",
+			"mode": "Shortcuts only",
+			"position": "Position",
+			"bottom": "Bottom",
+			"top": "Top",
+			"size": "Size",
+			"offset": "Offset"
+		},
 		"webcam": "網路攝影機疊加",
 		"webcamFootage": "網路攝影機素材",
 		"webcamFootageDescription": "此影片尚未連結網路攝影機素材",
