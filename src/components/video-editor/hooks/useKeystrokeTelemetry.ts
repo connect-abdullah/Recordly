@@ -43,6 +43,7 @@ export function useKeystrokeTelemetry({
 				}
 				return;
 			}
+			setKeystrokeTelemetry([]);
 			try {
 				const result = await window.electronAPI.getKeystrokeTelemetry?.(videoSourcePath);
 				if (!mounted) return;

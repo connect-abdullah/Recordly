@@ -125,13 +125,13 @@
 		"cursorClickBounceDuration": "Stuitsnelheid",
 		"cursorSway": "Cursorbeweging",
 		"keystrokeOverlay": {
-			"title": "Key overlay",
-			"mode": "Shortcuts only",
-			"position": "Position",
-			"bottom": "Bottom",
-			"top": "Top",
-			"size": "Size",
-			"offset": "Offset"
+			"title": "Toetsenoverlay",
+			"mode": "Alleen sneltoetsen",
+			"position": "Positie",
+			"bottom": "Onder",
+			"top": "Boven",
+			"size": "Grootte",
+			"offset": "Verschuiving"
 		},
 		"webcam": "Webcam-overlay",
 		"webcamFootage": "Webcambeelden",

@@ -27,10 +27,10 @@ static void stdinListener() {
     g_running.store(false);
 }
 
-static bool win32FocusedLooksPassword() {
+static HWND focusedWin32Window() {
     HWND foreground = GetForegroundWindow();
     if (!foreground) {
-        return false;
+        return nullptr;
     }
 
     DWORD threadId = GetWindowThreadProcessId(foreground, nullptr);
@@ -40,26 +40,55 @@ static bool win32FocusedLooksPassword() {
     if (GetGUIThreadInfo(threadId, &info) && info.hwndFocus) {
         focus = info.hwndFocus;
     }
+    return focus;
+}
+
+enum class FocusedFieldKind {
+    NonSecure,
+    Secure,
+    Unknown
+};
+
+static FocusedFieldKind win32FocusedPasswordState() {
+    HWND focus = focusedWin32Window();
+    if (!focus) {
+        return FocusedFieldKind::Unknown;
+    }
 
     LONG_PTR style = GetWindowLongPtr(focus, GWL_STYLE);
     if (style & ES_PASSWORD) {
-        return true;
+        return FocusedFieldKind::Secure;
     }
-    if (SendMessage(focus, EM_GETPASSWORDCHAR, 0, 0) != 0) {
-        return true;
+
+    DWORD_PTR passwordChar = 0;
+    const LRESULT sent = SendMessageTimeoutW(
+        focus,
+        EM_GETPASSWORDCHAR,
+        0,
+        0,
+        SMTO_ABORTIFHUNG | SMTO_BLOCK,
+        50,
+        &passwordChar
+    );
+    if (sent == 0) {
+        return FocusedFieldKind::Secure;
+    }
+    if (passwordChar != 0) {
+        return FocusedFieldKind::Secure;
     }
 
     wchar_t className[256] = {};
     if (GetClassNameW(focus, className, 256) > 0) {
         std::wstring cls(className);
         if (cls.find(L"Password") != std::wstring::npos) {
-            return true;
+            return FocusedFieldKind::Secure;
         }
+        return FocusedFieldKind::NonSecure;
     }
-    return false;
+    return FocusedFieldKind::Unknown;
 }
 
-static bool uiaFocusedLooksPassword() {
+static FocusedFieldKind uiaFocusedPasswordState() {
     IUIAutomation* automation = nullptr;
     HRESULT created = CoCreateInstance(
         CLSID_CUIAutomation,
@@ -69,25 +98,40 @@ static bool uiaFocusedLooksPassword() {
         reinterpret_cast<void**>(&automation)
     );
     if (FAILED(created) || !automation) {
-        return false;
+        return FocusedFieldKind::Unknown;
     }
 
     IUIAutomationElement* focused = nullptr;
     HRESULT focusResult = automation->GetFocusedElement(&focused);
-    bool isPassword = false;
-    if (SUCCEEDED(focusResult) && focused) {
-        BOOL password = FALSE;
-        if (SUCCEEDED(focused->get_CurrentIsPassword(&password)) && password) {
-            isPassword = true;
-        }
-        focused->Release();
+    if (FAILED(focusResult) || !focused) {
+        automation->Release();
+        return FocusedFieldKind::Unknown;
     }
+
+    BOOL password = FALSE;
+    HRESULT passwordResult = focused->get_CurrentIsPassword(&password);
+    focused->Release();
     automation->Release();
-    return isPassword;
+    if (FAILED(passwordResult)) {
+        return FocusedFieldKind::Unknown;
+    }
+    return password ? FocusedFieldKind::Secure : FocusedFieldKind::NonSecure;
 }
 
-static bool focusedLooksPassword() {
-    return win32FocusedLooksPassword() || uiaFocusedLooksPassword();
+static FocusedFieldKind focusedPasswordState() {
+    const FocusedFieldKind win32State = win32FocusedPasswordState();
+    if (win32State == FocusedFieldKind::Secure) {
+        return FocusedFieldKind::Secure;
+    }
+
+    const FocusedFieldKind uiaState = uiaFocusedPasswordState();
+    if (uiaState == FocusedFieldKind::Secure) {
+        return FocusedFieldKind::Secure;
+    }
+    if (win32State == FocusedFieldKind::NonSecure && uiaState == FocusedFieldKind::NonSecure) {
+        return FocusedFieldKind::NonSecure;
+    }
+    return FocusedFieldKind::Unknown;
 }
 
 static std::string keyNameFromVk(DWORD vk) {
@@ -141,7 +185,7 @@ static LRESULT CALLBACK keyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 g_downKeys.erase(info->vkCode);
             } else if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
                 const bool repeat = !g_downKeys.insert(info->vkCode).second;
-                if (!repeat && !focusedLooksPassword()) {
+                if (!repeat && focusedPasswordState() == FocusedFieldKind::NonSecure) {
                     std::vector<std::string> modifiers;
                     if (GetAsyncKeyState(VK_CONTROL) & 0x8000) modifiers.emplace_back("ctrl");
                     if (GetAsyncKeyState(VK_MENU) & 0x8000) modifiers.emplace_back("alt");

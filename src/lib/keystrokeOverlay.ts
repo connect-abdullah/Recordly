@@ -174,9 +174,9 @@ export function isShortcutKeystroke(sample: KeystrokeSample) {
 
 export function shouldStoreCapturedKeystroke(
 	sample: KeystrokeSample,
-	options: { platform?: string; isPasswordField: boolean },
+	options: { platform?: string; isPasswordField: boolean | "unknown" },
 ) {
-	if (options.isPasswordField) {
+	if (options.isPasswordField !== false) {
 		return false;
 	}
 	if (sample.repeat) {
@@ -282,23 +282,95 @@ export function formatKeystrokeLabel(sample: KeystrokeSample, isMac = false) {
 	return parts.filter(Boolean).join(isMac ? "" : "+");
 }
 
+type VisibleKeystrokeCache = {
+	samples: KeystrokeSample[];
+	enabled: boolean;
+	mode: KeystrokeOverlaySettings["mode"];
+	filtered: KeystrokeSample[];
+	lastTimeMs: number;
+	lastIndex: number;
+};
+
+let visibleKeystrokeCache: VisibleKeystrokeCache | null = null;
+
+function findRightmostSampleAtOrBefore(samples: KeystrokeSample[], timeMs: number): number {
+	let low = 0;
+	let high = samples.length - 1;
+	let found = -1;
+	while (low <= high) {
+		const mid = (low + high) >> 1;
+		if (samples[mid].timeMs <= timeMs) {
+			found = mid;
+			low = mid + 1;
+		} else {
+			high = mid - 1;
+		}
+	}
+	return found;
+}
+
+function getCachedVisibleKeystrokes(
+	samples: KeystrokeSample[],
+	settings: KeystrokeOverlaySettings,
+): VisibleKeystrokeCache {
+	if (
+		visibleKeystrokeCache &&
+		visibleKeystrokeCache.samples === samples &&
+		visibleKeystrokeCache.enabled === settings.enabled &&
+		visibleKeystrokeCache.mode === settings.mode
+	) {
+		return visibleKeystrokeCache;
+	}
+
+	visibleKeystrokeCache = {
+		samples,
+		enabled: settings.enabled,
+		mode: settings.mode,
+		filtered: filterKeystrokesForDisplay(samples, settings),
+		lastTimeMs: Number.NEGATIVE_INFINITY,
+		lastIndex: -1,
+	};
+	return visibleKeystrokeCache;
+}
+
 export function getVisibleKeystroke(
 	samples: KeystrokeSample[],
 	timeMs: number,
 	settings: KeystrokeOverlaySettings,
 	displayMs = KEYSTROKE_OVERLAY_DISPLAY_MS,
 ): KeystrokeSample | null {
-	const visible = filterKeystrokesForDisplay(samples, settings);
-	let latest: KeystrokeSample | null = null;
-	for (const sample of visible) {
-		if (sample.timeMs > timeMs) {
-			break;
-		}
-		if (timeMs - sample.timeMs <= displayMs) {
-			latest = sample;
-		}
+	const cache = getCachedVisibleKeystrokes(samples, settings);
+	const visible = cache.filtered;
+	if (visible.length === 0) {
+		cache.lastTimeMs = timeMs;
+		cache.lastIndex = -1;
+		return null;
 	}
-	return latest;
+
+	let index: number;
+	if (timeMs >= cache.lastTimeMs && cache.lastIndex >= -1) {
+		index = cache.lastIndex;
+		if (index < 0) {
+			index = visible[0].timeMs <= timeMs ? 0 : -1;
+		}
+		while (index + 1 < visible.length && visible[index + 1].timeMs <= timeMs) {
+			index += 1;
+		}
+	} else {
+		index = findRightmostSampleAtOrBefore(visible, timeMs);
+	}
+
+	cache.lastTimeMs = timeMs;
+	cache.lastIndex = index;
+	if (index < 0) {
+		return null;
+	}
+
+	const latest = visible[index];
+	if (timeMs - latest.timeMs <= displayMs) {
+		return latest;
+	}
+	return null;
 }
 
 export function getKeystrokeOverlayOpacity(

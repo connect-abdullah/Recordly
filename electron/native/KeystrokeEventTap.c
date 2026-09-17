@@ -36,6 +36,12 @@ static bool string_contains_ci(CFStringRef value, CFStringRef needle) {
 	return range.location != kCFNotFound;
 }
 
+typedef enum {
+	FOCUSED_FIELD_NON_SECURE = 0,
+	FOCUSED_FIELD_SECURE = 1,
+	FOCUSED_FIELD_UNKNOWN = 2,
+} focused_field_kind;
+
 static CFStringRef copy_ax_string(AXUIElementRef element, CFStringRef attribute) {
 	CFTypeRef value = NULL;
 	if (AXUIElementCopyAttributeValue(element, attribute, &value) != kAXErrorSuccess || !value) {
@@ -48,9 +54,12 @@ static CFStringRef copy_ax_string(AXUIElementRef element, CFStringRef attribute)
 	return NULL;
 }
 
-static bool element_looks_secure(AXUIElementRef element) {
+static focused_field_kind element_security_kind(AXUIElementRef element) {
 	CFStringRef role = copy_ax_string(element, kAXRoleAttribute);
 	CFStringRef subrole = copy_ax_string(element, kAXSubroleAttribute);
+	if (!role && !subrole) {
+		return FOCUSED_FIELD_UNKNOWN;
+	}
 	const bool secure =
 		string_contains_ci(subrole, CFSTR("secure")) ||
 		string_contains_ci(subrole, CFSTR("password")) ||
@@ -62,36 +71,48 @@ static bool element_looks_secure(AXUIElementRef element) {
 	if (subrole) {
 		CFRelease(subrole);
 	}
-	return secure;
+	return secure ? FOCUSED_FIELD_SECURE : FOCUSED_FIELD_NON_SECURE;
 }
 
-static bool focused_element_looks_secure(void) {
+static focused_field_kind focused_element_security_kind(void) {
 	AXUIElementRef system_wide = AXUIElementCreateSystemWide();
 	if (!system_wide) {
-		return false;
+		return FOCUSED_FIELD_UNKNOWN;
 	}
 
 	CFTypeRef focused = NULL;
-	AXUIElementRef current = NULL;
-	if (AXUIElementCopyAttributeValue(system_wide, kAXFocusedUIElementAttribute, &focused) ==
-			kAXErrorSuccess &&
-		focused && CFGetTypeID(focused) == AXUIElementGetTypeID()) {
-		current = (AXUIElementRef)focused;
-	}
+	AXError focused_error = AXUIElementCopyAttributeValue(
+		system_wide,
+		kAXFocusedUIElementAttribute,
+		&focused
+	);
 	CFRelease(system_wide);
 
-	bool secure = false;
+	if (focused_error != kAXErrorSuccess || !focused || CFGetTypeID(focused) != AXUIElementGetTypeID()) {
+		if (focused) {
+			CFRelease(focused);
+		}
+		return FOCUSED_FIELD_UNKNOWN;
+	}
+
+	AXUIElementRef current = (AXUIElementRef)focused;
+	focused_field_kind result = FOCUSED_FIELD_NON_SECURE;
 	for (int depth = 0; current && depth < 6; depth += 1) {
-		if (element_looks_secure(current)) {
-			secure = true;
+		focused_field_kind kind = element_security_kind(current);
+		if (kind != FOCUSED_FIELD_NON_SECURE) {
+			result = kind;
 			break;
 		}
 		CFTypeRef parent = NULL;
-		if (AXUIElementCopyAttributeValue(current, kAXParentAttribute, &parent) != kAXErrorSuccess ||
-			!parent ||
-			CFGetTypeID(parent) != AXUIElementGetTypeID()) {
+		AXError parent_error = AXUIElementCopyAttributeValue(current, kAXParentAttribute, &parent);
+		if (parent_error != kAXErrorSuccess || !parent || CFGetTypeID(parent) != AXUIElementGetTypeID()) {
 			if (parent) {
 				CFRelease(parent);
+			}
+			if (parent_error != kAXErrorSuccess &&
+				parent_error != kAXErrorNoValue &&
+				parent_error != kAXErrorAttributeUnsupported) {
+				result = FOCUSED_FIELD_UNKNOWN;
 			}
 			break;
 		}
@@ -101,7 +122,7 @@ static bool focused_element_looks_secure(void) {
 	if (current) {
 		CFRelease(current);
 	}
-	return secure;
+	return result;
 }
 
 static const char *key_name(CGKeyCode key_code) {
@@ -308,7 +329,8 @@ static CGEventRef tap_callback(
 	if (type != kCGEventKeyDown) {
 		return event;
 	}
-	if (focused_element_looks_secure()) {
+	const focused_field_kind field_kind = focused_element_security_kind();
+	if (field_kind == FOCUSED_FIELD_SECURE) {
 		return event;
 	}
 

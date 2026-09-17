@@ -7,6 +7,13 @@ import {
 	type KeystrokeSample,
 } from "@/lib/keystrokeOverlay";
 
+export function detectKeystrokeOverlayIsMac(
+	platformHint =
+		typeof navigator === "undefined" ? "" : `${navigator.platform} ${navigator.userAgent}`,
+) {
+	return /mac|iphone|ipad|ipod/i.test(platformHint);
+}
+
 export function renderKeystrokeOverlay(
 	ctx: CanvasRenderingContext2D,
 	samples: KeystrokeSample[],

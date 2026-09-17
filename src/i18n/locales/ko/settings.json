@@ -125,13 +125,13 @@
 		"cursorClickBounceDuration": "바운스 속도",
 		"cursorSway": "커서 흔들림",
 		"keystrokeOverlay": {
-			"title": "Key overlay",
-			"mode": "Shortcuts only",
-			"position": "Position",
-			"bottom": "Bottom",
-			"top": "Top",
-			"size": "Size",
-			"offset": "Offset"
+			"title": "키 오버레이",
+			"mode": "단축키만",
+			"position": "위치",
+			"bottom": "아래",
+			"top": "위",
+			"size": "크기",
+			"offset": "간격"
 		},
 		"webcam": "웹캠 오버레이",
 		"webcamFootage": "웹캠 영상",

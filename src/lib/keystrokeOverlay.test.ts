@@ -64,6 +64,12 @@ describe("keystroke overlay helpers", () => {
 				isPasswordField: true,
 			}),
 		).toBe(false);
+		expect(
+			shouldStoreCapturedKeystroke(sample({ key: "C", ctrl: true }), {
+				platform: "linux",
+				isPasswordField: "unknown",
+			}),
+		).toBe(false);
 	});
 
 	it("stores shortcuts only on Linux", () => {
@@ -122,6 +128,9 @@ describe("keystroke overlay helpers", () => {
 		);
 		expect(getVisibleKeystroke(samples, 450, DEFAULT_KEYSTROKE_OVERLAY_SETTINGS)?.key).toBe("C");
 		expect(getVisibleKeystroke(samples, 2500, DEFAULT_KEYSTROKE_OVERLAY_SETTINGS)).toBeNull();
+		expect(getVisibleKeystroke(samples, 150, DEFAULT_KEYSTROKE_OVERLAY_SETTINGS)?.key).toBe(
+			"Enter",
+		);
 	});
 
 	it("treats command combos including punctuation as shortcuts", () => {

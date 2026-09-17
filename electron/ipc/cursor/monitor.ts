@@ -2,9 +2,10 @@ import { spawn } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import { BrowserWindow } from "electron";
-import { ensureNativeCursorMonitorBinary, getCursorMonitorExePath } from "../paths/binaries";
+import { ensureNativeCursorMonitorBinary, getCursorMonitorExePath, getPrebundledNativeHelperPath } from "../paths/binaries";
 import {
 	currentCursorVisualType,
+	isCursorCaptureActive,
 	isKeystrokeCaptureEnabled,
 	nativeCursorMonitorOutputBuffer,
 	nativeCursorMonitorProcess,
@@ -15,7 +16,7 @@ import {
 import type { CursorVisualType } from "../types";
 import { recordCursorMouseDown, recordCursorMouseUp } from "./interaction";
 import { recordKeystrokeFromMonitorLine } from "./keystrokes";
-import { startInProcessKeystrokeTap, stopInProcessKeystrokeTap } from "./macKeystrokeTap";
+import { startInProcessKeystrokeTap } from "./macKeystrokeTap";
 
 export function emitCursorStateChanged(cursorType: CursorVisualType) {
 	BrowserWindow.getAllWindows().forEach((window) => {
@@ -69,10 +70,6 @@ export function handleCursorMonitorStdout(chunk: Buffer) {
 	}
 }
 
-function stopKeystrokeTap() {
-	stopInProcessKeystrokeTap();
-}
-
 export function stopNativeCursorMonitor() {
 	setCurrentCursorVisualType("arrow");
 
@@ -109,6 +106,7 @@ async function startMacKeystrokeTap() {
 
 export async function startNativeCursorMonitor() {
 	stopNativeCursorMonitor();
+	void startMacKeystrokeTap();
 
 	if (process.platform !== "darwin" && process.platform !== "win32") {
 		setCurrentCursorVisualType("arrow");
@@ -127,7 +125,17 @@ export async function startNativeCursorMonitor() {
 				return;
 			}
 		} else {
-			helperPath = await ensureNativeCursorMonitorBinary();
+			const prebundledPath = getPrebundledNativeHelperPath("recordly-native-cursor-monitor");
+			try {
+				await fs.access(prebundledPath, fsConstants.X_OK);
+				helperPath = prebundledPath;
+			} catch {
+				helperPath = await ensureNativeCursorMonitorBinary();
+			}
+		}
+
+		if (!isCursorCaptureActive) {
+			return;
 		}
 
 		setNativeCursorMonitorOutputBuffer("");
@@ -186,7 +194,5 @@ export async function startNativeCursorMonitor() {
 		setNativeCursorMonitorProcess(null);
 		setNativeCursorMonitorOutputBuffer("");
 		setCurrentCursorVisualType("arrow");
-	} finally {
-		await startMacKeystrokeTap();
 	}
 }

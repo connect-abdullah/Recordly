@@ -37,7 +37,14 @@ export function resetKeystrokeCapture() {
 	setPendingKeystrokeSamples([]);
 }
 
-export function pushKeystrokeSample(sample: KeystrokeSample) {
+function inspectLinuxFocusedFieldPasswordState(): boolean | "unknown" {
+	return "unknown";
+}
+
+export function pushKeystrokeSample(
+	sample: KeystrokeSample,
+	isPasswordField: boolean | "unknown" = "unknown",
+) {
 	if (!isCursorCaptureActive || isCursorCapturePaused() || !isKeystrokeCaptureEnabled) {
 		return;
 	}
@@ -45,7 +52,7 @@ export function pushKeystrokeSample(sample: KeystrokeSample) {
 	if (
 		!shouldStoreCapturedKeystroke(sample, {
 			platform: process.platform,
-			isPasswordField: false,
+			isPasswordField,
 		})
 	) {
 		return;
@@ -63,16 +70,19 @@ export function recordKeystrokeFromMonitorLine(line: string) {
 		return;
 	}
 
-	pushKeystrokeSample({
-		timeMs: getCursorCaptureElapsedMs(),
-		key: parsed.key,
-		code: parsed.code,
-		ctrl: parsed.ctrl,
-		alt: parsed.alt,
-		shift: parsed.shift,
-		meta: parsed.meta,
-		repeat: parsed.repeat || undefined,
-	});
+	pushKeystrokeSample(
+		{
+			timeMs: getCursorCaptureElapsedMs(),
+			key: parsed.key,
+			code: parsed.code,
+			ctrl: parsed.ctrl,
+			alt: parsed.alt,
+			shift: parsed.shift,
+			meta: parsed.meta,
+			repeat: parsed.repeat || undefined,
+		},
+		false,
+	);
 }
 
 export function recordKeystrokeFromHookEvent(event: {
@@ -94,16 +104,22 @@ export function recordKeystrokeFromHookEvent(event: {
 		return;
 	}
 
-	pushKeystrokeSample({
-		timeMs: getCursorCaptureElapsedMs(),
-		key,
-		code: key,
-		ctrl: event.ctrlKey === true,
-		alt: event.altKey === true,
-		shift: event.shiftKey === true,
-		meta: event.metaKey === true,
-		repeat: event.repeat === true ? true : undefined,
-	});
+	const isPasswordField =
+		process.platform === "linux" ? inspectLinuxFocusedFieldPasswordState() : "unknown";
+
+	pushKeystrokeSample(
+		{
+			timeMs: getCursorCaptureElapsedMs(),
+			key,
+			code: key,
+			ctrl: event.ctrlKey === true,
+			alt: event.altKey === true,
+			shift: event.shiftKey === true,
+			meta: event.metaKey === true,
+			repeat: event.repeat === true ? true : undefined,
+		},
+		isPasswordField,
+	);
 }
 
 const UIOHOOK_SPECIAL: Record<number, string> = {
@@ -225,10 +241,10 @@ export function snapshotKeystrokeTelemetryForPersistence() {
 		return;
 	}
 
-	const lastPendingTimeMs = pendingKeystrokeSamples[pendingKeystrokeSamples.length - 1]?.timeMs ?? -1;
+	const pendingRefs = new Set(pendingKeystrokeSamples);
 	setPendingKeystrokeSamples([
 		...pendingKeystrokeSamples,
-		...activeKeystrokeSamples.filter((sample) => sample.timeMs > lastPendingTimeMs),
+		...activeKeystrokeSamples.filter((sample) => !pendingRefs.has(sample)),
 	]);
 }
 

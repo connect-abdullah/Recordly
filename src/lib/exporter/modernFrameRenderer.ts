@@ -89,7 +89,7 @@ import {
 	renderAnnotationToCanvas,
 } from "./annotationRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
-import { renderKeystrokeOverlay } from "./keystrokeRenderer";
+import { detectKeystrokeOverlayIsMac, renderKeystrokeOverlay } from "./keystrokeRenderer";
 import { resolveMediaElementSource } from "./localMediaSource";
 import {
 	getShadowFilterPadding,
@@ -433,6 +433,7 @@ export class FrameRenderer {
 	private lastContentTimeMs: number | null = null;
 	private layoutCache: LayoutCache | null = null;
 	private currentVideoTime = 0;
+	private readonly keystrokeOverlayIsMac = detectKeystrokeOverlayIsMac();
 	private cursorOverlay: PixiCursorOverlay | null = null;
 	private lastSyncedWebcamTime: number | null = null;
 	private webcamRenderMode: "hidden" | "live" | "cached" = "hidden";
@@ -1521,7 +1522,8 @@ export class FrameRenderer {
 			this.config.keystrokeOverlaySettings,
 			this.config.width,
 			this.config.height,
-			timeMs,
+			this.currentVideoTime * 1000,
+			this.keystrokeOverlayIsMac,
 		);
 		this.outputCanvasOverride = canvas;
 	}
@@ -3011,7 +3013,8 @@ export class FrameRenderer {
 					this.config.keystrokeOverlaySettings,
 					this.config.width,
 					this.config.height,
-					timeMs,
+					this.currentVideoTime * 1000,
+					this.keystrokeOverlayIsMac,
 				);
 				this.outputCanvasOverride = canvas;
 				return;

@@ -75,7 +75,7 @@ import {
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
 import { renderAnnotations } from "./annotationRenderer";
 import { renderCaptions } from "./captionRenderer";
-import { renderKeystrokeOverlay } from "./keystrokeRenderer";
+import { detectKeystrokeOverlayIsMac, renderKeystrokeOverlay } from "./keystrokeRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
 
@@ -254,6 +254,7 @@ export class FrameRenderer {
 	private motionBlurState: MotionBlurState;
 	private layoutCache: LayoutCache | null = null;
 	private currentVideoTime = 0;
+	private readonly keystrokeOverlayIsMac = detectKeystrokeOverlayIsMac();
 	private springScale: SpringState;
 	private springX: SpringState;
 	private springY: SpringState;
@@ -1542,6 +1543,7 @@ export class FrameRenderer {
 				this.config.width,
 				this.config.height,
 				timeMs,
+				this.keystrokeOverlayIsMac,
 			);
 		}
 	}

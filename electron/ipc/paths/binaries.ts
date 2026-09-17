@@ -111,6 +111,9 @@ export function getNativeCursorMonitorBinaryPath(): string {
 }
 
 export function getKeystrokeTapSourcePath(): string {
+	if (app.isPackaged) {
+		return getPrebundledNativeHelperPath("recordly-keystroke-tap.node");
+	}
 	return resolveUnpackedAppPath("electron", "native", "KeystrokeEventTap.c");
 }
 
@@ -268,6 +271,18 @@ export async function ensureSwiftHelperBinary(
 }
 
 export async function ensureKeystrokeTapBinary(): Promise<string> {
+	if (app.isPackaged) {
+		const packagedPath = getKeystrokeTapSourcePath();
+		try {
+			await fs.access(packagedPath);
+			return packagedPath;
+		} catch {
+			throw new Error(
+				`Keystroke tap helper is missing from this app build (${packagedPath}). Reinstall or update the app.`,
+			);
+		}
+	}
+
 	const sourcePath = getKeystrokeTapSourcePath();
 	const binaryPath = getKeystrokeTapBinaryPath();
 	await fs.mkdir(path.dirname(binaryPath), { recursive: true });

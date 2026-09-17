@@ -3493,6 +3493,10 @@ export function SettingsPanel({
 												enabled,
 											})
 										}
+										aria-label={tSettings(
+											"effects.keystrokeOverlay.title",
+											"Key overlay",
+										)}
 										className="data-[state=checked]:bg-[#2563EB] scale-75"
 									/>
 								</div>
@@ -3511,6 +3515,10 @@ export function SettingsPanel({
 												mode: shortcutsOnly ? "shortcuts" : "all",
 											})
 										}
+										aria-label={tSettings(
+											"effects.keystrokeOverlay.mode",
+											"Shortcuts only",
+										)}
 										className="data-[state=checked]:bg-[#2563EB] scale-75"
 									/>
 								</div>

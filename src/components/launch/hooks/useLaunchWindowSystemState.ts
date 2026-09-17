@@ -99,6 +99,10 @@ export function useLaunchWindowSystemState(
 	}, [captureKeystrokes, platform]);
 
 	useEffect(() => {
+		void preparePermissions({ startup: true });
+	}, [preparePermissions]);
+
+	useEffect(() => {
 		let cancelled = false;
 		const loadVersion = async () => {
 			try {
